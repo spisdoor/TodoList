@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>TodoList</title>
+  <link rel="stylesheet" type="text/css" href="./css/index.css">
+</head>
+<body>
+  <div id="app" class="container">
+    <div class="header">
+      <span class="header-title">Todo List</span>
+      <span class="header-content">哈囉</span>
+      <button class="add-todo-button" @click="showAddModal = true">新增待辦清單</button>
+      <add-modal v-if="showAddModal" @close="showAddModal = false"></add-modal>
+    </div>
+    <div class="filter">
+      <input id="filter-all" type="radio" value="all" v-model="filter"><label for="filter-all">全部({{ todo_all }})</label>
+      <input id="filter-todo" type="radio" value="todo" v-model="filter"><label for="filter-todo">未完成({{ todo_todo }})</label>
+      <input id="filter-inprogress" type="radio" value="inprogress" v-model="filter"><label for="filter-inprogress">完成中({{ todo_inprogress }})</label>
+      <input id="filter-done" type="radio" value="done" v-model="filter"><label for="filter-done">已完成({{ todo_done }})</label>
+      <input class="search" placeholder="搜尋..." v-model="search"/>
+    </div>
+    <div class="sort">
+      <span>排序方法</span>
+      <select class="sort-list" v-model="sort">
+        <option value="none">無 (依建立時間)</option>
+        <option value="date_first">預計完成時間 (由先到後)</option>
+        <option value="date_last">預計完成時間 (由後到先)</option>
+        <option value="priority_first">優先度 (由高到低)</option>
+        <option value="priority_last">優先度 (由低到高)</option>
+      </select>
+    </div>
+    <div class="todolist">
+      <table>
+        <tr>
+          <th>待辦事項</th>
+          <th>預計完成時間</th>
+          <th>優先度</th>
+          <th>完成狀態</th>
+          <th>修改/刪除</th>
+        </tr>
+        <tr v-for="(todo, index) in todoList_" v-if="filter == todo.status || filter == 'all'">
+          <td>{{ todo.text }}</td>
+          <td>{{ todo.date }}</td>
+          <td>
+            <span class="filled-star" v-for="p in todo.priority"></span>
+            <span class="unfilled-star" v-for="p in (5 - todo.priority)"></span>
+          </td>
+          <td>{{ todo.status }}</td>
+          <td>
+            <button class="update-todo-button" @click="showUpdateModal = true; setUpdateTodo(todo);">修改</button>
+            <button class="delete-todo-button" @click="showDeleteModal = true; setDeleteTodo(todo);">刪除</button>
+            <update-modal v-if="showUpdateModal" @close="showUpdateModal = false"></update-modal>
+            <delete-modal v-if="showDeleteModal" @close="showDeleteModal = false"></delete-modal>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- 新增 -->
+  <script type="text/x-template" id="addTodoModal">
+    <div class="modal-mask">
+      <div class="modal-wrapper">
+        <div class="modal-container">
+          <div class="modal-header">
+            <h3 class="modal-title">新增待辦事項</h3>
+            <button class="cancel-button" @click="$emit('close')">X</button>
+          </div>
+          <div class="modal-body">
+            <table>
+              <tr>
+                <td>待辦事項</td>
+                <td><input v-model="newTodoText"/></td>
+              </tr>
+              <tr>
+                <td>預計完成時間</td>
+                <td><input v-model="newTodoDate" type="date"/></td>
+              </tr>
+              <tr>
+              <td>優先度</td>
+                <td>
+                  <div class="star-number" data-value="0" hidden v-model="newTodoPriority"></div>
+                  <div class="star-1" data-value="1" @click="changeStars('star-1')" @mouseover="fillStar('star-1')" @mouseout="unfillStar('star-1')"></div>
+                  <div class="star-2" data-value="2" @click="changeStars('star-2')" @mouseover="fillStar('star-2')" @mouseout="unfillStar('star-2')"></div>
+                  <div class="star-3" data-value="3" @click="changeStars('star-3')" @mouseover="fillStar('star-3')" @mouseout="unfillStar('star-3')"></div>
+                  <div class="star-4" data-value="4" @click="changeStars('star-4')" @mouseover="fillStar('star-4')" @mouseout="unfillStar('star-4')"></div>
+                  <div class="star-5" data-value="5" @click="changeStars('star-5')" @mouseover="fillStar('star-5')" @mouseout="unfillStar('star-5')"></div>
+                </td>
+              </tr>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button class="add-todo-button submit-button" @click="addTodo">新增</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </script>
+  <!-- 新增 -->
+
+  <!-- 修改 -->
+  <script type="text/x-template" id="updateTodoModal">
+    <div class="modal-mask">
+      <div class="modal-wrapper">
+        <div class="modal-container">
+          <div class="modal-header">
+            <h3 class="modal-title">修改待辦事項</h3>
+            <button class="cancel-button" @click="$emit('close')">X</button>
+          </div>
+          <div class="modal-body">
+            <table>
+              <tr>
+                <td>待辦事項</td>
+                <td><input v-model="internalUpdateTodoText"/></td>
+              </tr>
+              <tr>
+                <td>預計完成時間</td>
+                <td><input v-model="internalUpdateTodoDate" type="date"/></td>
+              </tr>
+              <tr>
+                <td>優先度</td>
+                <td>
+                  
+                  <div class="star-number" data-value="0" hidden v-model="internalUpdateTodoPriority"></div>
+                  <div class="star-1" data-value="1" @click="changeStars('star-1')" @mouseover="fillStar('star-1')" @mouseout="unfillStar('star-1')"></div>
+                  <div class="star-2" data-value="2" @click="changeStars('star-2')" @mouseover="fillStar('star-2')" @mouseout="unfillStar('star-2')"></div>
+                  <div class="star-3" data-value="3" @click="changeStars('star-3')" @mouseover="fillStar('star-3')" @mouseout="unfillStar('star-3')"></div>
+                  <div class="star-4" data-value="4" @click="changeStars('star-4')" @mouseover="fillStar('star-4')" @mouseout="unfillStar('star-4')"></div>
+                  <div class="star-5" data-value="5" @click="changeStars('star-5')" @mouseover="fillStar('star-5')" @mouseout="unfillStar('star-5')"></div>
+                  
+                </td>
+              </tr>
+              <tr>
+                <td>完成狀態</td>
+                <td>
+                  <input id="status-todo" type="radio" value="todo" v-model="internalUpdateTodoStatus"><label for="status-todo">未完成</label>
+                  <input id="status-inprogress" type="radio" value="inprogress" v-model="internalUpdateTodoStatus"><label for="status-inprogress">完成中</label>
+                  <input id="status-done" type="radio" value="done" v-model="internalUpdateTodoStatus"><label for="status-done">已完成</label>
+                </td>
+              </tr>
+            </table>
+          </div>
+          <div class="modal-footer">
+            <button class="update-todo-button submit-button" @click="updateTodo">修改</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </script>
+  <!-- 修改 -->
+
+  <!-- 刪除 -->
+  <script type="text/x-template" id="deleteTodoModal">
+    <div class="modal-mask">
+      <div class="modal-wrapper">
+        <div class="modal-container">
+          <div class="modal-header">
+            <h3 class="modal-title">刪除待辦事項</h3>
+            <button class="cancel-button" @click="$emit('close')">X</button>
+          </div>
+          <div class="modal-body">
+            <div>你確定要刪除<div class="delete-todo-text">{{ deletedTodoObj['text'] }}</div>這個待辦事項嗎 ?</div>
+          </div>
+          <div class="modal-footer">
+            <button class="delete-todo-button submit-button" @click="deleteTodo">刪除</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </script>
+  <!-- 刪除 -->
+  <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+  <script src="./js/index.js"></script>
+</body>
+</html>
